@@ -10,32 +10,79 @@ jobs:
   build:
     runs-on: self-hosted
     steps:
+    - name: Thorough Cleanup
+      run: |
+        # Remove previous workspace
+        rm -rf ~/ros2_ws
+
+        # Remove locally installed packages
+        rm -rf ~/.local/lib/python3.10/site-packages/
+
+        # Clear ROS package cache
+        rm -rf ~/.ros/
+
+        # Clear colcon build cache
+        rm -rf ~/.colcon/
+
+        # Remove any leftover ROS log files
+        rm -rf ~/.ros/*.log
+
+        # Clear system-wide ROS package cache (may require sudo)
+        sudo rm -rf /var/lib/apt/lists/*
+        sudo apt clean
+        sudo apt update
+
+        # Remove content from GITHUB_WORKSPACE
+        rm -rf $GITHUB_WORKSPACE/*
+
     - uses: actions/checkout@v3
     
     - name: Setup ROS Humble
       run: |
         source /opt/ros/humble/setup.bash
-        echo "source /opt/ros/humble/setup.bash" >> $HOME/.bashrc
     
     - name: Create Workspace
       run: |
         mkdir -p ~/ros2_ws/src
-        cd ~/ros2_ws/src
-        cp -r $GITHUB_WORKSPACE/* .
+        cp -r $GITHUB_WORKSPACE/* ~/ros2_ws/src/
     
     - name: Install Dependencies
       run: |
         cd ~/ros2_ws
+        sudo rosdep init || true
         rosdep update
         rosdep install --from-paths src --ignore-src -r -y
     
     - name: Build
       run: |
         cd ~/ros2_ws
-        colcon build
+        source /opt/ros/humble/setup.bash
+        colcon build --cmake-clean-cache
     
     - name: Run Tests
       run: |
         cd ~/ros2_ws
+        source /opt/ros/humble/setup.bash
         colcon test
         colcon test-result --verbose
+
+    - name: Thorough Cleanup After Build
+      if: always()
+      run: |
+        # Remove workspace
+        rm -rf ~/ros2_ws
+
+        # Remove locally installed packages
+        rm -rf ~/.local/lib/python3.10/site-packages/
+
+        # Clear ROS package cache
+        rm -rf ~/.ros/
+
+        # Clear colcon build cache
+        rm -rf ~/.colcon/
+
+        # Remove any leftover ROS log files
+        rm -rf ~/.ros/*.log
+
+        # Remove content from GITHUB_WORKSPACE
+        rm -rf $GITHUB_WORKSPACE/*
