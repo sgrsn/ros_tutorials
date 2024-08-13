@@ -77,8 +77,5 @@ jobs:
         # Clear locally installed Python packages
         rm -rf ~/.local/lib/python3.10/site-packages/
 
-        # Clear Docker images and containers (if applicable)
-        docker system prune -af
-
         # Clear any temporary files
         sudo rm -rf /tmp/*
