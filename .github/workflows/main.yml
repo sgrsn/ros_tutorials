@@ -1,4 +1,4 @@
-name: ROS Humble Build
+name: Humble Package Build
 
 on:
   push:
@@ -7,75 +7,23 @@ on:
     branches: [ "humble" ]
 
 jobs:
-  build:
+  build-and-test:
     runs-on: self-hosted
-    env:
-      ROS_WS: ~/ros2_ws
     steps:
-    - name: Prepare Clean Environment
+    - uses: actions/checkout@v2
+
+    - name: Build Docker image
       run: |
-        # Remove previous workspace if exists
-        rm -rf ${{ env.ROS_WS }}
+        docker build -t humble-build -f ./Dockerfile .
 
-        # Clear ROS package cache
-        rm -rf ~/.ros/
-
-        # Clear colcon build cache
-        rm -rf ~/.colcon/
-
-        # Remove any leftover ROS log files
-        rm -rf ~/.ros/*.log
-
-        # Clear system-wide ROS package cache (may require sudo)
-        sudo rm -rf /var/lib/apt/lists/*
-        sudo apt clean
-        sudo apt update
-
-    - uses: actions/checkout@v3
-      with:
-        path: ${{ env.ROS_WS }}/src
-    
-    - name: Setup ROS Humble
+    - name: Run colcon build
       run: |
-        source /opt/ros/humble/setup.bash
-    
-    - name: Install Dependencies
-      working-directory: ${{ env.ROS_WS }}
+        docker run --rm humble-build bash -c "source /opt/ros/humble/setup.bash && colcon build"
+
+    - name: Run colcon test
       run: |
-        sudo rosdep init || true
-        rosdep update
-        rosdep install --from-paths src --ignore-src -r -y
-    
-    - name: Build
-      working-directory: ${{ env.ROS_WS }}
+        docker run --rm humble-build bash -c "source /opt/ros/humble/setup.bash && colcon test"
+
+    - name: Clean up
       run: |
-        source /opt/ros/humble/setup.bash
-        colcon build --cmake-clean-cache
-    
-    - name: Run Tests
-      working-directory: ${{ env.ROS_WS }}
-      run: |
-        source /opt/ros/humble/setup.bash
-        colcon test
-        colcon test-result --verbose
-
-    - name: Complete Cleanup
-      if: always()
-      run: |
-        # Remove the entire workspace
-        rm -rf ${{ env.ROS_WS }}
-
-        # Clear ROS package cache
-        rm -rf ~/.ros/
-
-        # Clear colcon build cache
-        rm -rf ~/.colcon/
-
-        # Remove any leftover ROS log files
-        rm -rf ~/.ros/*.log
-
-        # Clear locally installed Python packages
-        rm -rf ~/.local/lib/python3.10/site-packages/
-
-        # Clear any temporary files
-        sudo rm -rf /tmp/*
+        docker rmi humble-build
