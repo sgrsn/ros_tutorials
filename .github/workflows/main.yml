@@ -9,14 +9,13 @@ on:
 jobs:
   build:
     runs-on: self-hosted
+    env:
+      ROS_WS: ~/ros2_ws
     steps:
-    - name: Thorough Cleanup
+    - name: Prepare Clean Environment
       run: |
-        # Remove previous workspace
-        rm -rf ~/ros2_ws
-
-        # Remove locally installed packages
-        rm -rf ~/.local/lib/python3.10/site-packages/
+        # Remove previous workspace if exists
+        rm -rf ${{ env.ROS_WS }}
 
         # Clear ROS package cache
         rm -rf ~/.ros/
@@ -32,48 +31,39 @@ jobs:
         sudo apt clean
         sudo apt update
 
-        # Remove content from GITHUB_WORKSPACE
-        rm -rf $GITHUB_WORKSPACE/*
-
     - uses: actions/checkout@v3
+      with:
+        path: ${{ env.ROS_WS }}/src
     
     - name: Setup ROS Humble
       run: |
         source /opt/ros/humble/setup.bash
     
-    - name: Create Workspace
-      run: |
-        mkdir -p ~/ros2_ws/src
-        cp -r $GITHUB_WORKSPACE/* ~/ros2_ws/src/
-    
     - name: Install Dependencies
+      working-directory: ${{ env.ROS_WS }}
       run: |
-        cd ~/ros2_ws
         sudo rosdep init || true
         rosdep update
         rosdep install --from-paths src --ignore-src -r -y
     
     - name: Build
+      working-directory: ${{ env.ROS_WS }}
       run: |
-        cd ~/ros2_ws
         source /opt/ros/humble/setup.bash
         colcon build --cmake-clean-cache
     
     - name: Run Tests
+      working-directory: ${{ env.ROS_WS }}
       run: |
-        cd ~/ros2_ws
         source /opt/ros/humble/setup.bash
         colcon test
         colcon test-result --verbose
 
-    - name: Thorough Cleanup After Build
+    - name: Complete Cleanup
       if: always()
       run: |
-        # Remove workspace
-        rm -rf ~/ros2_ws
-
-        # Remove locally installed packages
-        rm -rf ~/.local/lib/python3.10/site-packages/
+        # Remove the entire workspace
+        rm -rf ${{ env.ROS_WS }}
 
         # Clear ROS package cache
         rm -rf ~/.ros/
@@ -84,5 +74,11 @@ jobs:
         # Remove any leftover ROS log files
         rm -rf ~/.ros/*.log
 
-        # Remove content from GITHUB_WORKSPACE
-        rm -rf $GITHUB_WORKSPACE/*
+        # Clear locally installed Python packages
+        rm -rf ~/.local/lib/python3.10/site-packages/
+
+        # Clear Docker images and containers (if applicable)
+        docker system prune -af
+
+        # Clear any temporary files
+        sudo rm -rf /tmp/*
