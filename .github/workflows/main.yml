@@ -14,7 +14,8 @@ jobs:
 
     - name: Build Docker image
       run: |
-        docker build -t humble-build -f ~/Dockerfile .
+        cd ~/humble-vcan-image
+        docker build -t humble-build .
 
     - name: Run colcon build
       run: |
