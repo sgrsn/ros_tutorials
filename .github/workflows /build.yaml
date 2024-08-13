@@ -1,0 +1,41 @@
+name: ROS Humble Build
+
+on:
+  push:
+    branches: [ "humble" ]
+  pull_request:
+    branches: [ "humble" ]
+
+jobs:
+  build:
+    runs-on: self-hosted
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Setup ROS Humble
+      run: |
+        source /opt/ros/humble/setup.bash
+        echo "source /opt/ros/humble/setup.bash" >> $HOME/.bashrc
+    
+    - name: Create Workspace
+      run: |
+        mkdir -p ~/ros2_ws/src
+        cd ~/ros2_ws/src
+        cp -r $GITHUB_WORKSPACE/* .
+    
+    - name: Install Dependencies
+      run: |
+        cd ~/ros2_ws
+        rosdep update
+        rosdep install --from-paths src --ignore-src -r -y
+    
+    - name: Build
+      run: |
+        cd ~/ros2_ws
+        colcon build
+    
+    - name: Run Tests
+      run: |
+        cd ~/ros2_ws
+        colcon test
+        colcon test-result --verbose
